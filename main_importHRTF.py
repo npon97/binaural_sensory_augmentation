@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile 
-from scipy.signal import lfilter
+from scipy.signal import firwin
 
 HRTF_L_path = (
   "/home/phippsy/masters-proj/full/elev-10/L-10e090a.dat"
@@ -21,8 +21,11 @@ title_r = HRTF_R_path.split("/")[-1]
 # u is unsigned integer
 # > is big endian, < is little endian
 # The number after specifies the number of bytes (e.g. 2 = 2 bytes / 16 bits)
-leftimp = np.fromfile(HRTF_L_path, dtype='>i2') # big-endian signed 16 bit integer
-rightimp = np.fromfile(HRTF_R_path, dtype='>i2')# big-endian signed 16 bit integer
+leftHRTF = np.fromfile(HRTF_L_path, dtype='>i2') # big-endian signed 16 bit integer
+rightHRTF = np.fromfile(HRTF_R_path, dtype='>i2')# big-endian signed 16 bit integer
+
+leftimp = np.fft.ifft(leftHRTF) # obtain the inverse fourier transform
+rightimp = np.fft.ifft(rightHRTF) # of the transfer function
 
 size_taps_l = len(leftimp)
 size_taps_l = len(rightimp)
@@ -41,14 +44,32 @@ size_taps_l = len(rightimp)
 # plt.show()
 
 fs, sound_in = wavfile.read(FUNK_PATH) # Read the audio data
+# left_channel = sound_in[0:]
+# right_channel = sound_in[1:]
+
+left_channel, right_channel = np.hsplit(sound_in, 2)
+
+# The [0] removes the outer list
+left_channel = np.reshape(left_channel, (1, -1))[0] 
+right_channel = np.reshape(right_channel, (1, -1))[0]
+
+print(left_channel.shape)
+print(leftimp.shape)
+
+
+'''
+# taps = 512
+# sound samples = 846720
+'''
 
 # Convolve the values with an input signal 
-#spatial_l = np.array([np.convolve(xi, leftimp, mode='valid') for xi in sound_in])
-#spatial_r = np.array([np.convolve(xi, rightimp, mode='valid') for xi in sound_in])
+spatial_l = np.convolve(left_channel, leftimp, mode='valid')
+spatial_r = np.convolve(right_channel, rightimp, mode='valid')
+
 
 print(spatial_l.shape)
 print(spatial_r.shape)
 
 spatial_out = np.hstack((spatial_l, spatial_r))
 
-#wavfile.write(OUTPUT_AUDIO_PATH, fs, spatial_out)
+wavfile.write(OUTPUT_AUDIO_PATH, fs, spatial_out)
